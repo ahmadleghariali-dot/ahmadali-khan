@@ -1,0 +1,68 @@
+# threaded_prime_generator.py
+import math
+import threading
+from queue import Queue
+
+
+def is_prime(n):
+    """Return True if n is prime using optimized checking."""
+    if n < 2:
+        return False
+    if n % 2 == 0 and n > 2:
+        return False
+    limit = int(math.sqrt(n)) + 1
+    for i in range(3, limit, 2):
+        if n % i == 0:
+            return False
+    return True
+
+
+def prime_worker(task_queue, result_queue):
+    """Thread worker that checks prime numbers."""
+    while True:
+        num = task_queue.get()
+        if num is None:
+            break
+        if is_prime(num):
+            result_queue.put(num)
+        task_queue.task_done()
+
+
+def generate_primes(start, end, threads=4):
+    """
+    Produces prime numbers in the range using multithreading.
+    Efficient for large ranges.
+    """
+
+    task_queue = Queue()
+    result_queue = Queue()
+
+    # Start worker threads
+    workers = []
+    for _ in range(threads):
+        t = threading.Thread(target=prime_worker, args=(task_queue, result_queue))
+        t.start()
+        workers.append(t)
+
+    # Push tasks
+    for n in range(start, end + 1):
+        task_queue.put(n)
+
+    # Signal end
+    for _ in workers:
+        task_queue.put(None)
+
+    # Wait for threads
+    for t in workers:
+        t.join()
+
+    primes = []
+    while not result_queue.empty():
+        primes.append(result_queue.get())
+
+    return sorted(primes)
+
+
+if __name__ == "__main__":
+    primes = generate_primes(1, 50000, threads=8)
+    print("Total primes found:", len(primes))
